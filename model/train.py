@@ -84,6 +84,8 @@ class Trainer:
         self.create_scheduler(len(train_loader) * self.epochs)
 
         for epoch in range(self.epochs):
+            self.logger.info(f"Epoch {epoch + 1}/{self.epochs}")
+            self.logger.info("Training...")
             train_loss, train_acc = self.train_epoch(train_loader)
             val_loss, val_acc, report = self.evaluate(val_loader)
 
