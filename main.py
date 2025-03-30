@@ -1,26 +1,53 @@
 if __name__ == "__main__":
+    import torch
+    import logging
     import pandas as pd
+    from model.train import Trainer
+    from model.predict import SentimentPredictor
     from data.preprocess import TextPreprocessor
-    from transformers import BertTokenizer
+    from data.dataset import SentimentDataset, create_dataloader
+    from transformers import BertTokenizer, BertForSequenceClassification
 
     __import__("warnings").filterwarnings("ignore")
 
     MODEL_NAME = "bert-base-uncased"
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     train_df = pd.read_csv("data/raw/train.csv")
-    test_df = pd.read_csv("data/raw/test.csv")
 
     preprocessor = TextPreprocessor(text_column="text")
     train_df = preprocessor.process(train_df)
-    test_df = preprocessor.process(test_df)
+    train_df, val_df = preprocessor.split_data(train_df, test_size=0.1)
 
     tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
 
-    def tokenize_dataset(df):
-        return tokenizer(df["claned_text"].tolist(), padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+    def tokenize(text_series):
+        return tokenizer(text_series.tolist(), padding="max_length", truncation=True, max_length=128, return_tensors="pt")
 
-    train_encodings = tokenize_dataset(train_df)
-    test_encodings = tokenize_dataset(test_df)
+    train_encodings = tokenize(train_df["cleaned_text"])
+    val_encodings = tokenize(val_df["cleaned_text"])
 
     train_labels = pd.factorize(train_df["sentiment"])[0]
-    test_labels = pd.factorize(test_df["sentiment"])[0]
+    val_labels = pd.factorize(val_df["sentiment"])[0]
+
+    train_dataset = SentimentDataset(train_encodings, DEVICE, train_labels)
+    val_dataset = SentimentDataset(val_encodings, DEVICE, val_labels)
+
+    train_loader = create_dataloader(train_dataset, batch_size=32)
+    val_loader = create_dataloader(val_dataset, batch_size=32, shuffle=False)
+
+    model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=3, id2label={0: "negative", 1: "neutral", 2: "positive"})
+
+    trainer = Trainer(model=model, device="cuda" if torch.cuda.is_available() else "cpu", epochs=5, lr=3e-5)
+    trainer.train(train_loader, val_loader)
+
+    final_loss, final_acc, final_report = trainer.evaluate(val_loader)
+    logging.info(f"\nFinal Result:")
+    logging.info(f"Modelo: {MODEL_NAME}")
+    logging.info(f"Loss: {final_loss:.4f} | Accuracy: {final_acc:.4f}")
+    logging.info(f"Classification Report:\n{final_report}")
+
+    predictor = SentimentPredictor(model_path="models/best_model.pt", device=DEVICE)
+    test_predictions = predictor.predict("data/raw/test.csv")
+    test_predictions.to_csv("data/predictions/final_predictions.csv", index=False)
+    logging.info("Predictions saved in data/predictions/final_predictions.csv")
