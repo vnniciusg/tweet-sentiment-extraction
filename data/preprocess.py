@@ -62,8 +62,11 @@ class TextPreprocessor:
         return df.reset_index(drop=True)
 
     def split_data(self, df: pd.DataFrame, test_size: float = 0.2) -> Tuple:
-        X, y = df["cleaned_text"], pd.factorize(df["sentiment"])[0]
-        return train_test_split(X, y, test_size=test_size, stratify=y, random_state=self.random_state)
+        df["label"] = pd.factorize(df["sentiment"])[0]
+
+        train_df, val_df = train_test_split(df, test_size=test_size, stratify=df["label"], random_state=self.random_state)
+
+        return train_df.drop(columns=["label"]), val_df.drop(columns=["label"])
 
     def process(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
