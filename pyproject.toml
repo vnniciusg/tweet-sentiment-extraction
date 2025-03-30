@@ -5,11 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "nlpprepkit>=1.2.3",
+    "nltk>=3.9.1",
     "pandas>=2.2.3",
+    "scikit-learn>=1.6.1",
     "torch>=2.6.0",
     "torchaudio>=2.6.0",
-    "torchtext>=0.18.0",
     "torchvision>=0.21.0",
+    "transformers>=4.50.3",
 ]
 
 
@@ -44,5 +47,5 @@ exclude = [
     "venv",
 ]
 
-line-length = 300
+line-length = 200
 indent-width = 4
